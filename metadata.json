@@ -1,0 +1,5 @@
+{
+  "name": "English Pro - Pronunciation Analyzer",
+  "description": "An AI-powered application that analyzes English pronunciation from audio and video files, providing accurate transcripts, detailed phonetic feedback, and scoring.",
+  "requestFramePermissions": []
+}

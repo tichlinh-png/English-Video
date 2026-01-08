@@ -1,0 +1,278 @@
+
+import React, { useState, useEffect } from 'react';
+import { FileUpload } from './components/FileUpload';
+import { ResultDisplay } from './components/ResultDisplay';
+import { analyzePronunciation } from './services/geminiService';
+import { AnalysisResult, MediaState } from './types';
+
+const OTHER_APPS = [
+  { name: 'Playful Points', url: 'https://playful-points-challenge.lovable.app', icon: '🎯' },
+  { name: 'Synthwave Space', url: 'https://synthwave-space-694411017558.us-west1.run.app/', icon: '🌌' },
+  { name: 'LuminaTales', url: 'https://luminatales-ai-storybook-architect-694411017558.us-west1.run.app/', icon: '📖' },
+  { name: 'Magic Strike AR', url: 'https://magic-strike-ar-694411017558.us-west1.run.app/', icon: '🪄' },
+  { name: 'Hand Cannon', url: 'https://hand-cannon-showdown.lovable.app/', icon: '⚔️' },
+  { name: 'Edu Sheet', url: 'https://public-edu-sheet-743352123710.us-west1.run.app/', icon: '📝' },
+  { name: 'Marble Rush', url: 'https://marble-rush-ai-name-picker-694411017558.us-west1.run.app/', icon: '🔮' },
+  { name: 'Preschool Play', url: 'https://preschool-play-sheets.lovable.app/', icon: '🎨' },
+];
+
+const App: React.FC = () => {
+  const [intendedText, setIntendedText] = useState('');
+  const [media, setMedia] = useState<MediaState>({ file: null, previewUrl: null, type: null });
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Stats state
+  const [liveUsers, setLiveUsers] = useState(0);
+  const [totalVisits, setTotalVisits] = useState(0);
+
+  useEffect(() => {
+    // 1. Logic tính toán người dùng Online (Dựa trên thời gian thực để tạo sự đồng bộ tương đối)
+    const updateLiveUsers = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      // Giả lập lưu lượng cao hơn vào buổi tối (19h-23h) và thấp hơn vào ban đêm
+      let base = 5;
+      if (hour >= 19 && hour <= 23) base = 12;
+      else if (hour >= 1 && hour <= 5) base = 2;
+      
+      const fluctuation = Math.floor(Math.random() * 4); // Biến động nhẹ +- 4
+      setLiveUsers(base + fluctuation);
+    };
+
+    updateLiveUsers();
+    const liveInterval = setInterval(updateLiveUsers, 8000);
+
+    // 2. Lấy số lượt truy cập chính xác từ API toàn cầu (CounterAPI)
+    const fetchVisits = async () => {
+      try {
+        // Sử dụng counterapi.dev để lưu trữ lượt truy cập toàn cầu (Namespace: english_pro_caitlin)
+        const response = await fetch('https://api.counterapi.dev/v1/english_pro_caitlin/total/increment');
+        if (response.ok) {
+          const data = await response.json();
+          // Cộng thêm 15240 lượt gốc để tạo nền tảng chuyên nghiệp
+          setTotalVisits(data.value + 15240);
+        } else {
+          // Fallback nếu API lỗi
+          const saved = localStorage.getItem('total_visits_fallback') || '15240';
+          const newVal = parseInt(saved) + 1;
+          localStorage.setItem('total_visits_fallback', newVal.toString());
+          setTotalVisits(newVal);
+        }
+      } catch (err) {
+        const saved = localStorage.getItem('total_visits_fallback') || '15240';
+        setTotalVisits(parseInt(saved));
+      }
+    };
+
+    fetchVisits();
+
+    return () => clearInterval(liveInterval);
+  }, []);
+
+  const handleFileSelect = async (file: File) => {
+    setIsLoading(true);
+    setError(null);
+    setAnalysis(null);
+
+    const type = file.type.startsWith('video') ? 'video' : 'audio';
+    const previewUrl = URL.createObjectURL(file);
+    setMedia({ file, previewUrl, type });
+
+    try {
+      const result = await analyzePronunciation(file, intendedText);
+      setAnalysis(result);
+    } catch (err) {
+      console.error(err);
+      setError("Dường như có lỗi nhỏ rồi. Bạn thử tải lại tệp nhé! 💜");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetApp = () => {
+    setMedia({ file: null, previewUrl: null, type: null });
+    setAnalysis(null);
+    setError(null);
+    setIntendedText('');
+  };
+
+  return (
+    <div className="min-h-screen text-slate-800 pb-20">
+      <nav className="pt-8 px-8">
+        <div className="container mx-auto max-w-5xl flex justify-between items-center">
+          <div className="flex items-center space-x-4 cursor-pointer group" onClick={resetApp}>
+            <div className="bg-indigo-600 p-3 rounded-[20px] shadow-xl shadow-indigo-100 group-hover:rotate-6 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </div>
+            <span className="text-2xl font-black tracking-tight text-indigo-900">English<span className="text-indigo-600">Pro</span> 💜</span>
+          </div>
+          {analysis && (
+            <button 
+              onClick={resetApp} 
+              className="bg-indigo-600 text-white px-8 py-3 rounded-[20px] font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
+            >
+              Làm lại mới 🔄
+            </button>
+          )}
+        </div>
+      </nav>
+
+      <main className="container mx-auto px-6 py-12 max-w-4xl">
+        {!analysis && !isLoading ? (
+          <div className="space-y-12 animate-in fade-in duration-700">
+            <div className="text-center space-y-4">
+              <h1 className="text-6xl font-black tracking-tighter text-slate-900 leading-none">
+                Luyện Nói <span className="text-indigo-600">Đỉnh Cao</span>
+              </h1>
+              <p className="text-slate-400 font-bold text-lg">Phân tích chuyên sâu từ AI thông thái ✨</p>
+            </div>
+
+            <div className="bg-white p-8 md:p-12 rounded-[48px] shadow-2xl shadow-indigo-100/50 border border-white space-y-10">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pl-1">
+                  <span className="text-xl">✍️</span>
+                  <label className="block text-xs font-black text-indigo-400 uppercase tracking-[0.2em]">Câu dự kiến của bạn</label>
+                </div>
+                <textarea 
+                  value={intendedText}
+                  onChange={(e) => setIntendedText(e.target.value)}
+                  placeholder="Ví dụ: 'Hello, how are you today?'..."
+                  className="w-full h-40 p-6 rounded-[32px] bg-indigo-50/30 border-2 border-indigo-50 focus:border-indigo-300 focus:ring-0 outline-none transition-all resize-none text-xl font-bold text-indigo-900 placeholder:text-indigo-200"
+                />
+                <p className="text-[10px] text-slate-300 font-bold text-center px-4">AI sẽ so sánh giọng nói của bạn với câu này để chỉ ra các lỗi ngữ pháp và từ vựng.</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pl-1">
+                  <span className="text-xl">🎙️</span>
+                  <label className="block text-xs font-black text-indigo-400 uppercase tracking-[0.2em]">Tải tệp nói lên</label>
+                </div>
+                <FileUpload onFileSelect={handleFileSelect} isLoading={isLoading} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {isLoading ? (
+               <div className="flex flex-col items-center justify-center min-h-[45vh] space-y-8">
+                  <div className="relative">
+                    <div className="w-24 h-24 border-8 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl">🎧</div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-black text-indigo-900">Đang lắng nghe chăm chú...</h2>
+                    <p className="text-slate-400 font-bold italic">AI đang so sánh và chuẩn bị điểm số cho bạn 📝</p>
+                  </div>
+               </div>
+            ) : error ? (
+              <div className="bg-white p-12 rounded-[48px] text-center space-y-6 shadow-2xl border border-rose-50 max-w-xl mx-auto">
+                <div className="text-6xl animate-bounce">😿</div>
+                <h3 className="text-2xl font-black text-slate-800">{error}</h3>
+                <button 
+                  onClick={resetApp} 
+                  className="bg-indigo-600 text-white px-12 py-4 rounded-[24px] font-black text-lg transition-all hover:scale-105"
+                >
+                  Thử lại xem sao!
+                </button>
+              </div>
+            ) : (
+              <ResultDisplay 
+                result={analysis!} 
+                media={media} 
+                intendedText={intendedText} 
+              />
+            )}
+          </div>
+        )}
+
+        {/* Explore more apps section */}
+        <div className="mt-20 space-y-8 animate-in fade-in duration-1000 slide-in-from-bottom-10">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <h2 className="text-2xl font-black text-indigo-900">Khám phá thêm 🚀</h2>
+            <p className="text-slate-400 font-bold text-sm">Các ứng dụng thú vị khác từ đội ngũ EnglishPro</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {OTHER_APPS.map((app) => (
+              <a 
+                key={app.name} 
+                href={app.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group p-4 bg-white/60 backdrop-blur-sm rounded-[24px] border border-white hover:bg-indigo-600 transition-all duration-300 flex flex-col items-center text-center shadow-sm hover:shadow-xl hover:shadow-indigo-100 hover:-translate-y-1"
+              >
+                <span className="text-3xl mb-2 group-hover:scale-125 transition-transform duration-300">{app.icon}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 group-hover:text-white transition-colors">{app.name}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </main>
+
+      {/* Signature & Contact Footer */}
+      <footer className="mt-16 py-12 bg-white/40 backdrop-blur-md border-t border-white/50">
+        <div className="container mx-auto px-8 max-w-5xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-8 border-b border-indigo-50/50 pb-8">
+            {/* Signature Section */}
+            <div className="flex flex-col items-center md:items-start space-y-4">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative bg-white px-6 py-2 rounded-full border border-indigo-50">
+                   <span className="text-3xl font-serif italic text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-indigo-500 to-purple-600" style={{ fontFamily: "'Dancing Script', cursive, serif" }}>
+                     Caitlin
+                   </span>
+                </div>
+              </div>
+              <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">Created with Love by Caitlin</p>
+            </div>
+
+            {/* Stats Counter Section */}
+            <div className="flex gap-6 items-center">
+               <div className="bg-emerald-50 px-4 py-2 rounded-2xl border border-emerald-100 flex items-center gap-2 shadow-sm transition-all hover:scale-105">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">Online: {liveUsers}</span>
+               </div>
+               <div className="bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100 flex items-center gap-2 shadow-sm transition-all hover:scale-105">
+                  <span className="text-lg">📊</span>
+                  <span className="text-xs font-black text-indigo-700 uppercase tracking-wider">Lượt xem: {totalVisits.toLocaleString()}</span>
+               </div>
+            </div>
+
+            {/* Contact Section */}
+            <div className="flex flex-col items-center md:items-end space-y-4">
+              <div className="flex items-center gap-4">
+                <a 
+                  href="https://www.facebook.com/linhyookie" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-2xl border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1V12h3l-.5 3H13v6.8c4.56-.93 8-4.96 8-9.8z"/>
+                  </svg>
+                  <span className="text-sm font-bold">Linh Yookie</span>
+                </a>
+
+                <div className="flex items-center gap-2 bg-sky-50 text-sky-600 px-4 py-2 rounded-2xl border border-sky-100 shadow-sm">
+                   <span className="text-xs font-black uppercase">Zalo:</span>
+                   <span className="text-sm font-bold">0862936906</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="text-center">
+             <p className="text-[10px] text-slate-400 font-medium">© 2024 EnglishPro. Phát triển bởi Caitlin với công nghệ AI tiên tiến.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default App;
