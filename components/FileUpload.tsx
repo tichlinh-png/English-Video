@@ -1,105 +1,102 @@
-
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect1: (file: File) => void;
+  onFileSelect2: (file: File) => void;
   isLoading: boolean;
+  link1: string;
+  link2: string;
+  onLink1Change: (link: string) => void;
+  onLink2Change: (link: string) => void;
+  file1Name?: string | null;
+  file2Name?: string | null;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isLoading }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<number | null>(null);
+export const FileUpload: React.FC<FileUploadProps> = ({ 
+  onFileSelect1, 
+  onFileSelect2, 
+  isLoading, 
+  link1, 
+  link2, 
+  onLink1Change, 
+  onLink2Change,
+  file1Name,
+  file2Name
+}) => {
+  const inputRef1 = useRef<HTMLInputElement>(null);
+  const inputRef2 = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onFileSelect(e.target.files[0]);
-    }
+  const handleFileChange1 = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) onFileSelect1(e.target.files[0]);
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      const chunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
-        onFileSelect(file);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-      timerRef.current = window.setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } catch (err) {
-      console.error("Lỗi truy cập microphone:", err);
-      alert("Không thể truy cập Microphone. Vui lòng cấp quyền để ghi âm nhé! 🎙️");
-    }
+  const handleFileChange2 = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) onFileSelect2(e.target.files[0]);
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-  };
+  const renderUploadBox = (
+    label: string, 
+    linkValue: string, 
+    onLinkChange: (val: string) => void, 
+    inputRef: React.RefObject<HTMLInputElement | null>,
+    onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+    fileName?: string | null
+  ) => (
+    <div className="flex-1 space-y-3 min-w-[300px]">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">{label}</span>
+      </div>
+      
+      {/* Link Input */}
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <span className="text-lg opacity-50 group-focus-within:opacity-100 transition-opacity">🔗</span>
+        </div>
+        <input
+          type="text"
+          value={linkValue}
+          onChange={(e) => onLinkChange(e.target.value)}
+          placeholder={`Link Facebook ${label}...`}
+          disabled={isLoading}
+          className="w-full pl-9 pr-4 py-3 rounded-2xl border-2 border-indigo-50 bg-white text-indigo-900 placeholder:text-indigo-200 focus:border-indigo-300 focus:ring-0 outline-none font-bold transition-all text-xs"
+        />
+      </div>
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* File Upload Option */}
       <div 
-        className={`relative border-2 border-dashed rounded-[32px] p-6 transition-all flex flex-col items-center justify-center space-y-3 cursor-pointer group
-          ${isLoading ? 'border-indigo-100 bg-slate-50' : 'border-indigo-200 bg-indigo-50/20 hover:border-indigo-400 hover:bg-indigo-50/40'}`}
-        onClick={() => !isLoading && !isRecording && inputRef.current?.click()}
+        className={`relative border-2 border-dashed rounded-[24px] p-6 transition-all flex flex-col items-center justify-center space-y-2 cursor-pointer group h-40
+          ${isLoading ? 'border-indigo-100 bg-slate-50' : 
+            fileName ? 'border-emerald-200 bg-emerald-50/30' : 'border-indigo-200 bg-indigo-50/20 hover:border-indigo-400 hover:bg-indigo-50/40'}`}
+        onClick={() => !isLoading && inputRef.current?.click()}
       >
-        <input type="file" ref={inputRef} onChange={handleFileChange} accept="audio/*,video/*" className="hidden" disabled={isLoading || isRecording} />
+        <input type="file" ref={inputRef} onChange={onFileChange} accept="audio/*,video/*" className="hidden" disabled={isLoading} />
         
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all ${isLoading ? 'bg-slate-200' : 'bg-indigo-600 text-white group-hover:scale-110'}`}>
-          {isLoading ? '⏳' : '📥'}
-        </div>
-
-        <div className="text-center">
-          <p className="font-bold text-indigo-900 text-sm">Tải tệp lên</p>
-          <p className="text-[10px] text-indigo-400 mt-1 uppercase font-black tracking-widest">MP3, MP4, MOV</p>
-        </div>
+        {fileName ? (
+          <>
+            <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl shadow-lg shadow-emerald-200">
+              ✓
+            </div>
+            <p className="font-bold text-emerald-700 text-xs text-center break-all px-2 line-clamp-2">{fileName}</p>
+            <p className="text-[9px] text-emerald-500 uppercase font-black tracking-widest">Đã chọn</p>
+          </>
+        ) : (
+          <>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all ${isLoading ? 'bg-slate-200' : 'bg-indigo-600 text-white group-hover:scale-110 shadow-lg shadow-indigo-200'}`}>
+              {isLoading ? '⏳' : '📥'}
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-indigo-900 text-xs">Tải file {label}</p>
+            </div>
+          </>
+        )}
       </div>
+    </div>
+  );
 
-      {/* Live Record Option */}
-      <div 
-        className={`relative border-2 border-dashed rounded-[32px] p-6 transition-all flex flex-col items-center justify-center space-y-3 cursor-pointer group
-          ${isRecording ? 'border-rose-400 bg-rose-50' : 'border-purple-200 bg-purple-50/20 hover:border-purple-400 hover:bg-purple-50/40'}`}
-        onClick={() => !isLoading && (isRecording ? stopRecording() : startRecording())}
-      >
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl transition-all 
-          ${isRecording ? 'bg-rose-500 text-white animate-pulse' : 'bg-purple-600 text-white group-hover:scale-110'}`}>
-          {isRecording ? '⏹️' : '🎙️'}
-        </div>
-
-        <div className="text-center">
-          <p className={`font-bold text-sm ${isRecording ? 'text-rose-600' : 'text-purple-900'}`}>
-            {isRecording ? `Đang ghi âm... ${formatTime(recordingTime)}` : 'Ghi âm trực tiếp'}
-          </p>
-          <p className="text-[10px] text-purple-400 mt-1 uppercase font-black tracking-widest">
-            {isRecording ? 'Nhấn để dừng' : 'Yêu cầu quyền Mic'}
-          </p>
-        </div>
-      </div>
+  return (
+    <div className="w-full flex flex-col md:flex-row gap-4">
+      {renderUploadBox("Lần 1", link1, onLink1Change, inputRef1, handleFileChange1, file1Name)}
+      {renderUploadBox("Lần 2 (Tùy chọn)", link2, onLink2Change, inputRef2, handleFileChange2, file2Name)}
     </div>
   );
 };
